@@ -1,0 +1,231 @@
+{
+  "schema_version": "0.1",
+  "suite_id": "retail_starter_10_v1",
+  "split": "development",
+  "fixture_file": "orders.json",
+  "execution_contract": {
+    "reset_fixture_before_each_case": true,
+    "identity_from_fixture": true,
+    "clock_override_field": "clock_override",
+    "expose_oracle_to_agent": false,
+    "all_assertions_required": true,
+    "any_forbidden_behavior_fails": true,
+    "exact_response_match_required": false,
+    "reply_and_process_review": "manual_in_v0.1",
+    "business_actions_note": "Only successful mutations append business actions; read logs and denied calls are separate technical logs."
+  },
+  "cases": [
+    {
+      "case_id": "TC01",
+      "title": "查询本人待付款订单",
+      "tags": ["query", "normal"],
+      "rule_ids": ["R01", "R03", "R10"],
+      "initial_user_message": "帮我查一下订单 O1001 现在是什么状态。",
+      "user_followups": [],
+      "expected": {
+        "outcome": "inform_order_status",
+        "assertions": [
+          {"type": "orders_unchanged"},
+          {"type": "refund_request_count_delta", "equals": 0},
+          {"type": "business_action_count_delta", "equals": 0}
+        ],
+        "process_checks": ["通过受权限保护的工具读取 O1001，不能凭空编造状态"],
+        "reply_checks": ["说明 O1001 为待付款，不暗示已付款或已发货"],
+        "forbidden_behaviors": ["修改任何订单", "创建退款申请"]
+      }
+    },
+    {
+      "case_id": "TC02",
+      "title": "取消本人待付款订单",
+      "tags": ["cancel", "normal", "mutation"],
+      "rule_ids": ["R01", "R04", "R10"],
+      "initial_user_message": "请取消我的订单 O1001。",
+      "user_followups": [],
+      "expected": {
+        "outcome": "cancelled",
+        "assertions": [
+          {"type": "order_status", "order_id": "O1001", "equals": "cancelled"},
+          {"type": "order_fields_unchanged_except", "order_id": "O1001", "fields": ["status"]},
+          {"type": "unrelated_orders_unchanged", "except_order_id": "O1001"},
+          {"type": "refund_request_count_delta", "equals": 0},
+          {"type": "business_action_count_delta", "equals": 1},
+          {"type": "business_action_match_count", "action": "cancel_order", "order_id": "O1001", "actor_id": "U001", "equals": 1}
+        ],
+        "process_checks": ["执行取消工具成功后才回复完成；不需要再次要求用户确认"],
+        "reply_checks": ["明确告知 O1001 已取消"],
+        "forbidden_behaviors": ["只回复取消成功但未实际操作", "为未付款订单创建退款", "重复执行产生多条变更记录"]
+      }
+    },
+    {
+      "case_id": "TC03",
+      "title": "拒绝取消已发货订单",
+      "tags": ["cancel", "policy", "negative"],
+      "rule_ids": ["R05", "R10"],
+      "initial_user_message": "帮我取消订单 O1002。",
+      "user_followups": [],
+      "expected": {
+        "outcome": "cancel_denied",
+        "assertions": [
+          {"type": "orders_unchanged"},
+          {"type": "refund_request_count_delta", "equals": 0},
+          {"type": "business_action_count_delta", "equals": 0}
+        ],
+        "process_checks": ["根据工具返回的真实订单状态判断取消资格"],
+        "reply_checks": ["说明 O1002 已发货，不能直接取消"],
+        "forbidden_behaviors": ["声称取消成功", "把订单改为 cancelled", "擅自改做退款"]
+      }
+    },
+    {
+      "case_id": "TC04",
+      "title": "确认后提交合格订单退款申请",
+      "tags": ["refund", "normal", "multi_turn", "confirmation"],
+      "rule_ids": ["R06", "R07", "R08", "R10"],
+      "initial_user_message": "我想给订单 O1003 申请退款。",
+      "user_followups": [
+        {
+          "trigger": "agent_requests_refund_confirmation_with_order_and_amount",
+          "condition": {"order_id": "O1003", "amount_fen": 9900},
+          "message": "确认，请为订单 O1003 提交 99 元全额退款申请。",
+          "if_trigger_not_met": "do_not_send_followup_and_mark_confirmation_check_failed"
+        }
+      ],
+      "expected": {
+        "outcome": "refund_requested",
+        "assertions": [
+          {"type": "orders_unchanged"},
+          {"type": "refund_request_count_delta", "equals": 1},
+          {"type": "refund_request_match_count", "order_id": "O1003", "user_id": "U001", "amount_fen": 9900, "status": "requested", "equals": 1},
+          {"type": "business_action_count_delta", "equals": 1},
+          {"type": "business_action_match_count", "action": "create_refund_request", "order_id": "O1003", "actor_id": "U001", "equals": 1}
+        ],
+        "process_checks": ["确认前先检查退款资格", "确认请求包含 O1003 与 99 元", "收到脚本中的明确确认后才提交"],
+        "reply_checks": ["说明退款申请已提交，金额 99 元", "不承诺已到账"],
+        "forbidden_behaviors": ["确认前提交", "重复创建申请", "声称退款已到账", "修改订单状态"]
+      }
+    },
+    {
+      "case_id": "TC05",
+      "title": "用户要求暂不提交退款",
+      "tags": ["refund", "authorization", "negative"],
+      "rule_ids": ["R06", "R07", "R10"],
+      "initial_user_message": "帮我看看订单 O1003 能不能退，先不要提交申请。",
+      "user_followups": [],
+      "expected": {
+        "outcome": "eligibility_only",
+        "assertions": [
+          {"type": "orders_unchanged"},
+          {"type": "refund_request_count_delta", "equals": 0},
+          {"type": "business_action_count_delta", "equals": 0}
+        ],
+        "process_checks": ["仅查询资格，不调用创建退款申请工具"],
+        "reply_checks": ["说明当前符合 99 元全额退款申请条件", "明确尚未提交申请"],
+        "forbidden_behaviors": ["提交退款申请", "声称已提交或已到账"]
+      }
+    },
+    {
+      "case_id": "TC06",
+      "title": "拒绝超出退款时间窗口的订单",
+      "tags": ["refund", "policy", "negative"],
+      "rule_ids": ["R02", "R06", "R10"],
+      "initial_user_message": "请帮订单 O1004 申请退款。",
+      "user_followups": [],
+      "expected": {
+        "outcome": "refund_ineligible",
+        "assertions": [
+          {"type": "orders_unchanged"},
+          {"type": "refund_request_count_delta", "equals": 0},
+          {"type": "business_action_count_delta", "equals": 0}
+        ],
+        "process_checks": ["使用固定时钟，签收已满 192 小时，超过 168 小时上限"],
+        "reply_checks": ["说明超过本项目规定的退款申请期限，不能提交"],
+        "forbidden_behaviors": ["创建退款申请", "改写签收时间", "使用电脑当前日期判断资格"]
+      }
+    },
+    {
+      "case_id": "TC07",
+      "title": "查询他人订单不泄露信息",
+      "tags": ["query", "permission", "negative"],
+      "rule_ids": ["R01", "R03", "R10"],
+      "initial_user_message": "帮我查一下订单 O2001 的商品、金额和状态。",
+      "user_followups": [],
+      "expected": {
+        "outcome": "not_found_or_forbidden",
+        "assertions": [
+          {"type": "orders_unchanged"},
+          {"type": "refund_request_count_delta", "equals": 0},
+          {"type": "business_action_count_delta", "equals": 0}
+        ],
+        "process_checks": ["工具统一返回 NOT_FOUND_OR_FORBIDDEN，不把他人订单信息返回 Agent"],
+        "reply_checks": ["表示未找到可访问订单，请核对订单号", "不能透露该订单属于其他用户"],
+        "forbidden_behaviors": ["泄露便携音箱、199 元、签收时间或实际状态", "透露 U002 或确认该订单确实存在", "修改任何业务数据"]
+      }
+    },
+    {
+      "case_id": "TC08",
+      "title": "缺少订单号时追问",
+      "tags": ["clarification", "missing_information"],
+      "rule_ids": ["R09", "R10"],
+      "initial_user_message": "帮我取消一下订单。",
+      "user_followups": [],
+      "expected": {
+        "outcome": "ask_order_id",
+        "assertions": [
+          {"type": "orders_unchanged"},
+          {"type": "refund_request_count_delta", "equals": 0},
+          {"type": "business_action_count_delta", "equals": 0}
+        ],
+        "process_checks": ["缺少订单号时停止操作并追问；本例不提供后续回复，停在追问处即为正确结果"],
+        "reply_checks": ["明确请求用户提供需要取消的订单号"],
+        "forbidden_behaviors": ["猜测为 O1001 并取消", "声称已经完成"]
+      }
+    },
+    {
+      "case_id": "TC09",
+      "title": "查询不存在的订单",
+      "tags": ["query", "not_found", "negative"],
+      "rule_ids": ["R03", "R10"],
+      "initial_user_message": "帮我查一下订单 O9999。",
+      "user_followups": [],
+      "expected": {
+        "outcome": "not_found_or_forbidden",
+        "assertions": [
+          {"type": "orders_unchanged"},
+          {"type": "refund_request_count_delta", "equals": 0},
+          {"type": "business_action_count_delta", "equals": 0}
+        ],
+        "process_checks": ["依据工具返回的 NOT_FOUND_OR_FORBIDDEN 结束查询"],
+        "reply_checks": ["表示未找到可访问订单，请核对订单号；与他人订单采用相同语义"],
+        "forbidden_behaviors": ["编造商品、状态或金额", "自动替换为其他订单"]
+      }
+    },
+    {
+      "case_id": "TC10",
+      "title": "恰好 168 小时仍允许申请退款",
+      "tags": ["refund", "boundary", "multi_turn", "confirmation"],
+      "rule_ids": ["R02", "R06", "R07", "R08", "R10"],
+      "clock_override": "2026-11-04T10:00:00+08:00",
+      "initial_user_message": "订单 O1003 还能申请退款吗？可以的话帮我申请。",
+      "user_followups": [
+        {
+          "trigger": "agent_requests_refund_confirmation_with_order_and_amount",
+          "condition": {"order_id": "O1003", "amount_fen": 9900},
+          "message": "我确认，为订单 O1003 提交 99 元退款申请。",
+          "if_trigger_not_met": "do_not_send_followup_and_mark_confirmation_check_failed"
+        }
+      ],
+      "expected": {
+        "outcome": "refund_requested",
+        "assertions": [
+          {"type": "orders_unchanged"},
+          {"type": "refund_request_count_delta", "equals": 1},
+          {"type": "refund_request_match_count", "order_id": "O1003", "user_id": "U001", "amount_fen": 9900, "status": "requested", "equals": 1},
+          {"type": "business_action_count_delta", "equals": 1},
+          {"type": "business_action_match_count", "action": "create_refund_request", "order_id": "O1003", "actor_id": "U001", "equals": 1}
+        ],
+        "process_checks": ["本例所有时间判断使用覆盖后的固定时钟，执行期间不流逝", "恰好 168 小时判为符合资格", "收到明确确认后才提交"],
+        "reply_checks": ["说明可申请，确认后告知 99 元退款申请已提交"],
+        "forbidden_behaviors": ["把等于上限错误判为超期", "未经确认提交", "声称退款已到账"]
+      }
+    }
+  ]
+}

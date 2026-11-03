@@ -1,0 +1,62 @@
+{
+  "schema_version": "0.1",
+  "fixture_id": "retail_starter_v1",
+  "synthetic": true,
+  "clock": "2026-11-03T10:00:00+08:00",
+  "current_user_id": "U001",
+  "currency": "CNY",
+  "orders": [
+    {
+      "order_id": "O1001",
+      "user_id": "U001",
+      "product_name": "无线鼠标",
+      "status": "pending_payment",
+      "total_amount_fen": 8900,
+      "paid_amount_fen": 0,
+      "created_at": "2026-11-03T09:00:00+08:00",
+      "delivered_at": null
+    },
+    {
+      "order_id": "O1002",
+      "user_id": "U001",
+      "product_name": "双肩背包",
+      "status": "shipped",
+      "total_amount_fen": 15900,
+      "paid_amount_fen": 15900,
+      "created_at": "2026-11-01T09:00:00+08:00",
+      "delivered_at": null
+    },
+    {
+      "order_id": "O1003",
+      "user_id": "U001",
+      "product_name": "蓝牙耳机",
+      "status": "delivered",
+      "total_amount_fen": 9900,
+      "paid_amount_fen": 9900,
+      "created_at": "2026-10-25T09:00:00+08:00",
+      "delivered_at": "2026-10-28T10:00:00+08:00"
+    },
+    {
+      "order_id": "O1004",
+      "user_id": "U001",
+      "product_name": "机械键盘",
+      "status": "delivered",
+      "total_amount_fen": 29900,
+      "paid_amount_fen": 29900,
+      "created_at": "2026-10-23T09:00:00+08:00",
+      "delivered_at": "2026-10-26T10:00:00+08:00"
+    },
+    {
+      "order_id": "O2001",
+      "user_id": "U002",
+      "product_name": "便携音箱",
+      "status": "delivered",
+      "total_amount_fen": 19900,
+      "paid_amount_fen": 19900,
+      "created_at": "2026-10-29T09:00:00+08:00",
+      "delivered_at": "2026-11-01T10:00:00+08:00"
+    }
+  ],
+  "refund_requests": [],
+  "business_actions": []
+}

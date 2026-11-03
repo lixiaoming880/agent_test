@@ -1,0 +1,20 @@
+# Local credentials; only commit example files without real keys.
+.env
+.env.*
+!.env.example
+
+# Python environments and generated caches.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Personal editor and operating-system files.
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
