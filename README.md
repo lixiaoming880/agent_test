@@ -2,7 +2,35 @@
 
 这是一个关于 Agent 评测的从 0 到 1 搭建的项目，面向 Agent 测试／评测实习作品。第一阶段先把业务、数据和成功标准写清楚，后续再接入大模型和自动化评测。
 
-当前版本：`v0.1`；场景：模拟电商售后；全部用户、订单和规则均为教学用虚构材料。
+当前版本：`v0.2`（订单工具阶段，业务规则仍为 `v0.1`）；场景：模拟电商售后；全部用户、订单和规则均为教学用虚构材料。
+
+## 运行订单工具
+
+在仓库根目录使用 Python 3.10 或以上版本运行，无需模型 API 或第三方运行依赖：
+
+```powershell
+python -m agent_bench demo
+```
+
+该演示在同一个环境中完成查询、取消、再次查询，以及重复取消和权限拒绝。所有变更仅存在本次运行的内存中，原始订单 JSON 不会改变。
+
+单独查询或取消：
+
+```powershell
+python -m agent_bench get-order O1001
+python -m agent_bench cancel-order O1001
+```
+
+每条独立命令都会重新加载初始数据；验证“取消后再查询”请使用 `demo` 或在 Python 中复用同一个 `OrderTools` 实例。详细解释见 [第二次练习](docs/second_exercise.md)。
+
+## 运行测试
+
+```powershell
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+```
+
+如果当前 Python 环境已安装 pytest，可直接执行第二条命令。测试验证业务工具行为，不代表已完成自然语言 Agent 评测。
 
 ## 先看什么
 
@@ -25,6 +53,10 @@
 | `docs/tool_contracts.md` | 下一阶段实现模拟工具时遵守的输入、输出与权限约定 |
 | `docs/first_exercise.md` | 约 60–90 分钟的第一次练习与记录模板 |
 | `docs/development_workflow.md` | 在本仓库开发、提交和同步 GitHub 的入门说明 |
+| `agent_bench/tools.py` | 查询、取消、独立运行环境与评测快照 |
+| `agent_bench/__main__.py` | 命令行操作和完整演示 |
+| `tests/test_order_tools.py` | 业务规则、权限、重复操作和状态隔离测试 |
+| `docs/second_exercise.md` | 实际运行工具、查看状态变化与测试结果 |
 
 ## 从哪里开发
 
@@ -42,8 +74,8 @@
 
 ## 当前边界
 
-当前已准备业务规则、测试数据和验收标准；尚未实现被测 Agent、业务工具、批量运行器和自动评分器。JSON 中的评分字段是下一阶段的实现约定，不代表已经完成自动评测。
+当前已实现 `get_order`、`cancel_order` 两个模拟业务工具，并覆盖 TC01、TC02、TC03、TC07、TC09 涉及的工具层需求。尚未接入大模型，也未实现退款工具、批量 Agent 运行器和端到端自动评分器。JSON 中的评分字段仍是后续实现约定。
 
 这 10 条用例是公开的练习／开发集。后续扩展时，另建保留测试集，避免把反复调试过的样例当作独立测试结果。
 
-下一阶段建议先用 Python 实现 `get_order` 和 `cancel_order`，完成 TC01、TC02、TC03、TC07、TC09，再接入模型。
+下一阶段可以把两个工具接入最小模型调用循环，再检查 Agent 能否根据自然语言选择正确工具、填写参数并如实回复。

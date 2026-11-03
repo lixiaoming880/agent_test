@@ -1,0 +1,2 @@
+# Only needed for tests; the tools themselves use the Python standard library.
+pytest>=7.4,<10
